@@ -14,7 +14,6 @@ from PIL import Image
 import numpy as np
 
 def compute_SSD(patch, patch_mask, texture_img, patch_l):
-    patch_rows, patch_cols, _ = np.shape(patch)
     tex_rows, tex_cols, _ = np.shape(texture_img)
 
     # only evaluate points that can serve as the centre point for a complete patch
@@ -24,25 +23,15 @@ def compute_SSD(patch, patch_mask, texture_img, patch_l):
     SSD = np.zeros((ssd_rows, ssd_cols))
 
     coords = np.where(patch_mask != 1)
-    points = zip(coords[0], coords[1])
-    patch = patch.astype('float')
-
+    patch_points = patch[coords[0], coords[1]]
+    patch_points = patch_points.astype('float')
 
     # for each possible location of the patch in the texture image
     for r in range(ssd_rows):
         for c in range(ssd_cols):
-            sum_ = 0
-
-            for (patch_r, patch_c) in points:
-                diffR = patch[patch_r][patch_c][0] - texture_img[r + patch_r][c + patch_c][0]
-                diffG = patch[patch_r][patch_c][1] - texture_img[r + patch_r][c + patch_c][1]
-                diffB = patch[patch_r][patch_c][2] - texture_img[r + patch_r][c + patch_c][2]
-
-                sum_ += diffR * diffR
-                sum_ += diffG * diffG
-                sum_ += diffB * diffB
-
-            SSD[r, c] = sum_
+            tex_points = texture_img[(coords[0]+r), (coords[1]+c)]
+            diff = patch_points - tex_points
+            SSD[r, c] = np.sum(diff*diff)
     return SSD
 
 def copy_patch(hole_img, patch_mask, texture_img,
@@ -223,8 +212,8 @@ while to_fill > 0:
 
 # TODOS:
 # don't allow texture smaller than patch size
-# fix holes that are left near the edges
-# make things faster...
+# fix issues that happen around the edges of the image
 
-Image.fromarray(hole_img).convert('RGB').show()
-Image.fromarray(hole_img).convert('RGB').save('results.jpg')
+final_img = Image.fromarray(hole_img).convert('RGB')
+final_img.show()
+final_img.save('result.jpg')
