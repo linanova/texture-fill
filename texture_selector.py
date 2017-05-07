@@ -1,6 +1,4 @@
-"""
-Alows a user to define an area of an image and saves mask in a pickle.
-"""
+""" Allow a user to define an area of an image and save mask in a pickle. """
 
 import os.path
 import pickle
@@ -21,12 +19,13 @@ class PolygonBuilder(object):
         self.line, = axes.plot([0], [0])
         self.x_vals = list()
         self.y_vals = list()
-        self.im_cols = ncols
-        self.im_rows = nrows
+        self.img_cols = ncols
+        self.img_rows = nrows
 
         self.cid = self.line.figure.canvas.mpl_connect('button_press_event', self)
 
     def __call__(self, event):
+        # ignore clicks outside the plot 
         if event.xdata is None:
             return
 
@@ -44,9 +43,8 @@ class PolygonBuilder(object):
                 coords.append(self.y_vals[i])
 
             # create mask image defining the texture area
-            mask_img = Image.new('L', (self.im_cols, self.im_rows), 0)
+            mask_img = Image.new('L', (self.img_cols, self.img_rows), 0)
             ImageDraw.Draw(mask_img).polygon(coords, outline=255, fill=255)
-            mask_img.show()
             mask_arr = np.array(mask_img, dtype=np.uint8)
 
             file_p = open("texture_region.pkl", 'wb')
@@ -56,21 +54,19 @@ class PolygonBuilder(object):
 
 def main():
     if len(sys.argv) != 2:
-        print "Incorrect usage."
-        exit()
+        print "usage: texture_selector.py texture_image"
+        sys.exit(1)
 
     img_name = sys.argv[1]
 
     if not os.path.isfile(img_name):
         print "File not found."
-        exit()
+        sys.exit(1)
 
-    # step 1: open image
     img = Image.open(img_name).convert('RGB')
     img_array = np.asarray(img, dtype=np.uint8)
     nrows, ncols, _ = img_array.shape
 
-    # step 2: show image in plot
     fig = plt.figure()
     axes = plt.axes()
 
@@ -85,15 +81,13 @@ def main():
     # flip y axis to get image right side up
     axes.invert_yaxis()
 
-    # show image
     axes.imshow(img_array)
-
-    # step 3: allow user to select an area within image
     fig.polygonbuilder = PolygonBuilder(axes, ncols, nrows)
 
     axes.set_title("Select rectangular area for texture.")
     plt.show()
 
-# TODO: makes more sense to move the pickle saving into a close event outside the class
+# TODO: move the pickle saving into a close event outside the class
+
 if __name__ == "__main__":
     main()
