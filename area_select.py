@@ -107,7 +107,7 @@ class FloodFiller(object):
 
             # if we've already seen it, move on
             # also check mask in case point was added in a prevoius selection
-            if checked[row][col]:
+            if checked[row][col] or self.area_mask[row][col]:
                 continue
 
             checked[row, col] = True
