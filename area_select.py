@@ -12,6 +12,7 @@ import pickle
 import sys
 
 from matplotlib import pyplot as plt
+import matplotlib.patheffects as pe
 import numpy as np
 from PIL import Image, ImageDraw
 from skimage import color
@@ -25,7 +26,8 @@ class PolygonBuilder(object):
     """
     def __init__(self, axes, ncols, nrows):
         # start with empty line
-        self.line, = axes.plot([0], [0])
+        self.line, = axes.plot([0], [0], '--w', linewidth=2,
+                               path_effects=[pe.Stroke(linewidth=3, foreground='black'), pe.Normal()])
         self.x_vals = list()
         self.y_vals = list()
         self.img_cols = ncols
@@ -68,12 +70,7 @@ class FloodFiller(object):
     """ Respond to user clicks by performing a flood fill outward from the selected
     points and provide visualization of current selection.
     """
-    COLOR_THRESHOLD = 20
-
-    # TODOs:
-    # allow user to choose color threshold
-    # allow undo on area selection
-    # make the selection look better
+    COLOR_THRESHOLD = 15
 
     def __init__(self, axes, img_array):
         # convert rgb values to lab
@@ -109,6 +106,7 @@ class FloodFiller(object):
             (row, col) = to_check.pop()
 
             # if we've already seen it, move on
+            # also check mask in case point was added in a prevoius selection
             if checked[row][col]:
                 continue
 
@@ -129,7 +127,7 @@ class FloodFiller(object):
                 to_check.add((row + 1, col))
 
         indices = np.where(self.area_mask)
-        self.axes.plot(indices[1], indices[0], 'rs', linestyle='None', markersize=1)
+        self.axes.plot(indices[1], indices[0], '.', color='0.5', linestyle='None', markersize=2)
         self.axes.figure.canvas.draw()
 
     def __call__(self, event):
