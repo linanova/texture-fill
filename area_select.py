@@ -168,6 +168,9 @@ def main():
     nrows, ncols, _ = np.shape(img_array)
     sys.setrecursionlimit(nrows * ncols)
 
+    # remove the standard pyplot toolbar
+    plt.rcParams['toolbar'] = 'None'
+
     fig = plt.figure()
     axes = plt.axes()
 
