@@ -89,7 +89,7 @@ class FloodFiller():
     def __is_similar_color(self, row, col):
         """Determine if the color at the given point is within the desired range."""
         candidate_color = self.img_values[row][col]
-        delta_e = color.deltaE_ciede2000(candidate_color, self.target_color)
+        delta_e = color.deltaE_ciede94(candidate_color, self.target_color)
         return delta_e <= self.COLOR_THRESHOLD
 
     def __flood_fill(self):
