@@ -19,8 +19,9 @@ from skimage import color
 
 import utils
 
-class PolygonBuilder(object):
-    """ Respond to user clicks by recording coordinates and connecting the dots to provide a
+class PolygonBuilder():
+    """
+    Respond to user clicks by recording coordinates and connecting the dots to provide a
     visualization of the region being selected. On a double click complete area by connecting
     back to the beginning.
     """
@@ -66,8 +67,9 @@ class PolygonBuilder(object):
             # disconnect event handler to avoid undesired effects on further clicks
             self.line.figure.canvas.mpl_disconnect(self.cid)
 
-class FloodFiller(object):
-    """ Respond to user clicks by performing a flood fill outward from the selected
+class FloodFiller():
+    """
+    Respond to user clicks by performing a flood fill outward from the selected
     points and provide visualization of current selection.
     """
     COLOR_THRESHOLD = 15
@@ -85,13 +87,14 @@ class FloodFiller(object):
         self.cid = axes.figure.canvas.mpl_connect('button_press_event', self)
 
     def __is_similar_color(self, row, col):
-        """ Determine if the color at the given point is within the desired range. """
+        """Determine if the color at the given point is within the desired range."""
         candidate_color = self.img_values[row][col]
         delta_e = color.deltaE_ciede2000(candidate_color, self.target_color)
         return delta_e <= self.COLOR_THRESHOLD
 
     def __flood_fill(self):
-        """ Starting from a single point, move outwards to add all points that match
+        """
+        Starting from a single point, move outwards to add all points that match
         the desired criteria.
         """
         nrows, ncols, _ = self.img_values.shape
@@ -131,7 +134,7 @@ class FloodFiller(object):
         self.axes.figure.canvas.draw()
 
     def __call__(self, event):
-        """ Record the target color and invoke a flood fill. """
+        """Record the target color and invoke a flood fill."""
         if event.xdata is None:
             return
 
@@ -143,7 +146,7 @@ class FloodFiller(object):
 
 
 def handle_close(event, fname):
-    """ Handle close event for plot by saving the selection if one was made. """
+    """Handle close event for plot by saving the selection if one was made."""
     mask = event.canvas.figure.selector.area_mask
 
     if mask is not None:
@@ -152,7 +155,8 @@ def handle_close(event, fname):
         file_p.close()
 
 def main():
-    """ Open and display image. Allow user to choose between making a target or texture
+    """
+    Open and display image. Allow user to choose between making a target or texture
     selection and initialize appropriate selector.
     """
 
@@ -187,11 +191,11 @@ def main():
 
     axes.imshow(img_array)
 
-    print 'Would you like to select the region to be filled (0) or the sample texture region (1)?'
+    print("Would you like to select the region to be filled (0) or the sample texture region (1)?")
 
     valid_input = False
     while not valid_input:
-        answer = raw_input("0 or 1: ")
+        answer = input("0 or 1: ")
         if answer == "0" or answer == "1":
             valid_input = True
 

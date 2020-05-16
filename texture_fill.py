@@ -21,7 +21,8 @@ PATCH_L = 10 # patch length
 STD_DEVIATION = 2 # standard deviation for random patch selection
 
 def compute_ssd(patch, patch_mask, texture):
-    """ Compute squared sum of differences for the given patch at each possible patch
+    """
+    Compute squared sum of differences for the given patch at each possible patch
     location along the texture image.
     """
 
@@ -50,7 +51,7 @@ def compute_ssd(patch, patch_mask, texture):
 
 def copy_patch(target_image, patch_mask, texture,
                target_ctr_r, target_ctr_c, source_ctr_r, source_ctr_c):
-    """ Copy patch from texture image to the chosen patch location in the target image. """
+    """Copy patch from texture image to the chosen patch location in the target image."""
 
     patch_rows, patch_cols = np.shape(patch_mask)
 
@@ -65,7 +66,7 @@ def copy_patch(target_image, patch_mask, texture,
                 target_image[target_r, target_c] = texture[source_r, source_c]
 
 def find_inner_edge(hole_mask):
-    """ Find the edge of already transferred texture within the hole image. """
+    """Find the edge of already transferred texture within the hole image."""
 
     nrows, ncols = np.shape(hole_mask)
     edge_mask = np.zeros(np.shape(hole_mask))
@@ -81,7 +82,8 @@ def find_inner_edge(hole_mask):
     return edge_mask
 
 def copy_texture(target_image, target_mask, texture):
-    """ Copy the given texture image to the centre of the hole in the target image. The centre
+    """
+    Copy the given texture image to the centre of the hole in the target image. The centre
     here is defined as the centre of the bounding box. This approach may not work with highly
     irregular hole shapes.
     """
@@ -92,12 +94,12 @@ def copy_texture(target_image, target_mask, texture):
     max_c = max(target_indices[1])
     min_c = min(target_indices[1])
 
-    centre_r = abs(max_r - (max_r - min_r) / 2)
-    centre_c = abs(max_c - (max_c - min_c) / 2)
+    centre_r = abs(max_r - (max_r - min_r) // 2)
+    centre_c = abs(max_c - (max_c - min_c) // 2)
 
     texture_rows, texture_cols, _ = np.shape(texture)
-    tex_half_h = texture_rows / 2
-    tex_half_w = texture_cols / 2
+    tex_half_h = texture_rows // 2
+    tex_half_w = texture_cols // 2
 
     img_rows, img_cols, _ = np.shape(target_image)
 
@@ -113,7 +115,8 @@ def copy_texture(target_image, target_mask, texture):
                 target_mask[target_row, target_col] = 2
 
 def main():
-    """ Load texture and target image as well as mask defining area to be replaced. Start by
+    """
+    Load texture and target image as well as mask defining area to be replaced. Start by
     copying entire texture sample into the centre of the desired area, then build outwards,
     selecting an appropriate patch to copy over to each location until the entire area is filled.
     """
@@ -167,7 +170,7 @@ def main():
     total_todo = len(target_indices[0])
 
     while total_todo > 0:
-        print "Remaining pixels: ", total_todo
+        print("Remaining pixels: ", total_todo)
 
         # find edge of texture that has been copied over so far
         edge_mask = find_inner_edge(target_mask)
@@ -238,7 +241,7 @@ def main():
 
 if __name__ == "__main__":
     if not os.path.isfile('target_region.pkl') or not os.path.isfile('texture_region.pkl'):
-        print "Specify the target and texture regions first."
+        print("Specify the target and texture regions first.")
         sys.exit(1)
 
     main()
