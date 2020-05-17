@@ -7,6 +7,8 @@ Requires:
 """
 
 from argparse import ArgumentParser
+from enum import Enum
+import multiprocessing as mp
 import random
 import os.path
 import pickle
@@ -20,44 +22,72 @@ import utils
 PATCH_L = 10 # patch length
 STD_DEVIATION = 2 # standard deviation for random patch selection
 
+
+class PixelType(Enum):
+    ORIGINAL = 0
+    EMPTY = 1
+    FILLED = 2
+
+
+def ssd_worker(row, column):
+    """Compute squared sum of differences at the given location in the texture image"""
+    tex_points = texture[(coordinates[0] + row), (coordinates[1] + column)]
+    diff = points - tex_points
+    return (np.sum(diff * diff), row, column)
+
+
+def ssd_initializer(patch, t, coords):
+    """Pool initializer for the ssd worker"""
+    global texture
+    global points
+    global coordinates
+    texture = t
+    coordinates = coords
+    points = patch[coords[0], coords[1]]
+    points = points.astype('float')
+
+
 def compute_ssd(patch, patch_mask, texture):
     """
     Compute squared sum of differences for the given patch at each possible patch
     location along the texture image.
     """
-
     tex_rows, tex_cols, _ = np.shape(texture)
 
     # only evaluate points that can serve as the centre point for a complete patch
     ssd_rows = tex_rows - 2 * PATCH_L
     ssd_cols = tex_cols - 2 * PATCH_L
 
-    ssd = np.zeros((ssd_rows, ssd_cols))
-
     # only consider points of interest, ie non-empty pixels
     # NTOE: currently this includes both newly added texture and pre-existing values
     # from the original image outside the hole
-    coords = np.where(patch_mask != 1)
-    patch_points = patch[coords[0], coords[1]]
-    patch_points = patch_points.astype('float')
+    coords = np.where(patch_mask != PixelType.EMPTY.value)
+
+    pool = mp.Pool(mp.cpu_count(), ssd_initializer, (patch, texture, coords))
 
     # for each possible location of the patch in the texture image
-    for r in range(ssd_rows):
-        for c in range(ssd_cols):
-            tex_points = texture[(coords[0] + r), (coords[1] + c)]
-            diff = patch_points - tex_points
-            ssd[r, c] = np.sum(diff * diff)
+    iterable = [(r, c) for r in range(ssd_rows) for c in range(ssd_cols)]
+    result = pool.starmap_async(ssd_worker, iterable).get()
+
+    pool.close()
+    pool.join()
+
+    # results from the workers arrive out of order
+    ssd = np.zeros((ssd_rows, ssd_cols))
+    for (value, r, c) in result:
+        ssd[r][c] = value
+
     return ssd
+
 
 def copy_patch(target_image, patch_mask, texture,
                target_ctr_r, target_ctr_c, source_ctr_r, source_ctr_c):
     """Copy patch from texture image to the chosen patch location in the target image."""
-
     patch_rows, patch_cols = np.shape(patch_mask)
 
     for r in range(patch_rows):
         for c in range(patch_cols):
-            if(patch_mask[r, c] == 1):
+            if(patch_mask[r, c] == PixelType.EMPTY.value):
                 target_r = target_ctr_r - PATCH_L + r
                 target_c = target_ctr_c - PATCH_L + c
 
@@ -65,21 +95,44 @@ def copy_patch(target_image, patch_mask, texture,
                 source_c = source_ctr_c - PATCH_L + c
                 target_image[target_r, target_c] = texture[source_r, source_c]
 
+
+def is_edge_worker(row, column):
+    """Determine if the given coordinate is an edge"""
+    nrows, ncols = shape
+    edge = (mask[row, column] == PixelType.EMPTY.value and
+            ((column > 0 and mask[row, column - 1] == PixelType.FILLED.value) or
+            (column < ncols - 1 and mask[row, column + 1] == PixelType.FILLED.value) or
+            (row > 0 and mask[row - 1, column] == PixelType.FILLED.value) or
+            (row < nrows - 1 and mask[row + 1, column] == PixelType.FILLED.value)))
+    return ((1 if edge else 0), row, column)
+
+
+def is_edge_initializer(hole_mask, nrows, ncols):
+    """Pool initializer for the is_edge workers"""
+    global mask
+    global shape
+    mask = hole_mask
+    shape = (nrows, ncols)
+
+
 def find_inner_edge(hole_mask):
     """Find the edge of already transferred texture within the hole image."""
-
     nrows, ncols = np.shape(hole_mask)
-    edge_mask = np.zeros(np.shape(hole_mask))
+    pool = mp.Pool(mp.cpu_count(), is_edge_initializer, (hole_mask, nrows, ncols))
 
-    for r in range(nrows):
-        for c in range(ncols):
-            if (hole_mask[r, c] == 1):
-                if ((c > 0 and hole_mask[r, c - 1] == 2) or
-                        (c < ncols - 1 and hole_mask[r, c + 1] == 2) or
-                        (r > 0 and hole_mask[r - 1, c] == 2) or
-                        (r < nrows - 1 and hole_mask[r + 1, c] == 2)):
-                    edge_mask[r, c] = 1
+    iterable = [(r, c) for r in range(nrows) for c in range(ncols)]
+    result = pool.starmap_async(is_edge_worker, iterable).get()
+
+    pool.close()
+    pool.join()
+
+    # results from the workers arrive out of order
+    edge_mask = np.zeros(np.shape(hole_mask))
+    for (value, r, c) in result:
+        edge_mask[r][c] = value
+
     return edge_mask
+
 
 def copy_texture(target_image, target_mask, texture):
     """
@@ -87,7 +140,6 @@ def copy_texture(target_image, target_mask, texture):
     here is defined as the centre of the bounding box. This approach may not work with highly
     irregular hole shapes.
     """
-
     target_indices = target_mask.nonzero()
     max_r = max(target_indices[0])
     min_r = min(target_indices[0])
@@ -110,9 +162,10 @@ def copy_texture(target_image, target_mask, texture):
 
             if(target_row >= 0 and target_row < img_rows
                and target_col >= 0 and target_col < img_cols
-               and target_mask[target_row, target_col] == 1):
+               and target_mask[target_row, target_col] == PixelType.EMPTY.value):
                 target_image[target_row, target_col] = texture[r, c]
-                target_mask[target_row, target_col] = 2
+                target_mask[target_row, target_col] = PixelType.FILLED.value
+
 
 def main():
     """
@@ -146,9 +199,7 @@ def main():
 
     # define texture image, adjusting selection to a rectangle
     # TODO: don't allow texture smaller than patch size
-    texture_indices = texture_mask.nonzero()
-    texture_rs = texture_indices[0]
-    texture_cs = texture_indices[1]
+    texture_rs, texture_cs = texture_mask.nonzero()
     texture = texture_array[min(texture_rs):max(texture_rs) + 1, min(texture_cs):max(texture_cs) + 1, :]
 
     # hole out target region in image
@@ -158,19 +209,18 @@ def main():
 
     nrows, ncols, _ = np.shape(target_image)
 
-    # cast target mask to uint8 type so we can have 3 possible modes:
-    # 0 means doesn't need filling, 1 means needs filling, 2 means has been filled
+    # cast target mask to uint8 type so we can have 3 possible PixelType modes
     target_mask = target_mask.astype(np.uint8)
 
     # copy the initial texture into the hole
     copy_texture(target_image, target_mask, texture)
 
     # update pixels needing to be filled
-    target_indices = np.where(target_mask == 1)
+    target_indices = np.where(target_mask == PixelType.EMPTY.value)
     total_todo = len(target_indices[0])
 
     while total_todo > 0:
-        print("Remaining pixels: ", total_todo)
+        print(f" Remaining pixels: {total_todo}", end="\r")
 
         # find edge of texture that has been copied over so far
         edge_mask = find_inner_edge(target_mask)
@@ -232,7 +282,7 @@ def main():
             edge_todo = len(edge_indices[0])
 
         # update count of total points remaining
-        target_indices = np.where(target_mask == 1)
+        target_indices = np.where(target_mask == PixelType.EMPTY.value)
         total_todo = len(target_indices[0])
 
     final_img = Image.fromarray(target_image).convert('RGB')

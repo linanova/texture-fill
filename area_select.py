@@ -19,6 +19,7 @@ from skimage import color
 
 import utils
 
+
 class PolygonBuilder():
     """
     Respond to user clicks by recording coordinates and connecting the dots to provide a
@@ -67,6 +68,7 @@ class PolygonBuilder():
             # disconnect event handler to avoid undesired effects on further clicks
             self.line.figure.canvas.mpl_disconnect(self.cid)
 
+
 class FloodFiller():
     """
     Respond to user clicks by performing a flood fill outward from the selected
@@ -109,7 +111,7 @@ class FloodFiller():
             (row, col) = to_check.pop()
 
             # if we've already seen it, move on
-            # also check mask in case point was added in a prevoius selection
+            # also check mask in case point was added in a previous selection
             if checked[row][col] or self.area_mask[row][col]:
                 continue
 
@@ -154,12 +156,12 @@ def handle_close(event, fname):
         pickle.dump(mask, file_p, -1)
         file_p.close()
 
+
 def main():
     """
     Open and display image. Allow user to choose between making a target or texture
     selection and initialize appropriate selector.
     """
-
     parser = ArgumentParser()
     parser.add_argument(
         "image", help="the image to use for area selection",
